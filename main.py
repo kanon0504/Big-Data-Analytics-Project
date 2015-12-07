@@ -8,6 +8,9 @@ from pyspark.mllib.linalg import SparseVector
 from pyspark.mllib.regression import LabeledPoint
 from pyspark.mllib.classification import SVMWithSGD
 from pyspark.mllib.classification import LogisticRegressionWithSGD
+import string
+
+
 
 sc = SparkContext(appName="Simple App")
 
@@ -33,6 +36,41 @@ def Predict(name_text,dictionary,model):
 
 #data,Y=lf.loadLabeled("/Users/Kanon/Documents/X-courses/MAP670/Big Data Analytics Project 2015/data/train")
 data,Y=lf.loadLabeled("data/train")
+
+
+#data preprocessing
+data=[w.decode('utf-8') for w in data ]
+stopwords = ['i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', 'your', 'yours',
+        'yourself', 'yourselves', 'he', 'him', 'his', 'himself', 'she', 'her', 'hers',
+        'herself', 'it', 'its', 'itself', 'they', 'them', 'their', 'theirs', 'themselves',
+        'what', 'which', 'who', 'whom', 'this', 'that', 'these', 'those', 'am', 'is', 'are',
+        'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'having', 'do', 'does',
+        'did', 'doing', 'a', 'an', 'the', 'and', 'but', 'if', 'or', 'because', 'as', 'until',
+        'while', 'of', 'at', 'by', 'for', 'with', 'about', 'against', 'between', 'into',
+        'through', 'during', 'before', 'after', 'above', 'below', 'to', 'from', 'up', 'down',
+        'in', 'out', 'on', 'off', 'over', 'under', 'again', 'further', 'then', 'once', 'here',
+        'there', 'when', 'where', 'why', 'how', 'all', 'any', 'both', 'each', 'few', 'more',
+        'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so',
+        'than', 'too', 'very', 's', 't', 'can', 'will', 'just', 'don', 'should', 'now']
+        
+for doc_id, text in enumerate(data):
+    
+    # Remove punctuation and lowercase
+    punctuation = set(string.punctuation)    
+    doc = ''.join([w for w in text.lower() if w not in punctuation])
+     
+    # Stopword removal
+    doc = [w for w in doc.split() if w not in stopwords]  
+    
+    # Stemming
+    stemmer = PorterStemmer()
+    doc = [stemmer.stem(w) for w in doc] 
+        
+    # Covenrt list of words to one string
+    doc = ' '.join(w for w in doc)
+    data[doc_id] = doc  
+
+
 
 
 #divide train data into X_test and X_train, divide the label into y_train and y_test
@@ -83,8 +121,8 @@ name_text=zip(X_test, y_test)
 predictionsNB=sc.parallelize(name_text).map(partial(Predict,dictionary=dict_broad.value,model=mbNB.value)).collect()
 #rate 0.8857142857142857
 rateNB = sum([1.0 for i in range(len(predictionsNB)) if predictionsNB[i][0] == predictionsNB[i][1]])/len(predictionsNB)
-print rateNB
-#0.8857142857142857
+print 'rateNB',rateNB
+#0.922855773838
 
 
 
@@ -99,8 +137,8 @@ name_text=zip(X_test, y_test)
 predictionsSVM=sc.parallelize(name_text).map(partial(Predict,dictionary=dict_broad.value,model=mbSVM.value)).collect()
 #rate
 rateSVM = sum(1.0 for i in range(len(predictionsSVM)) if predictionsSVM[i][0] == predictionsSVM[i][1])/len(predictionsSVM)
-print rateSVM
-#0.819047619047619
+print 'rateSVM',rateSVM
+#0.866475003993
 
 
 
@@ -116,8 +154,8 @@ name_text=zip(X_test, y_test)
 predictionsLR=sc.parallelize(name_text).map(partial(Predict,dictionary=dict_broad.value,model=mbLR.value)).collect()
 #rate 0.8058252427184466
 rateLR = sum(1.0 for i in range(len(predictionsLR)) if predictionsLR[i][0] == predictionsLR[i][1])/len(predictionsLR)
-print rateLR
-#0.8058252427184466
+print 'rateLR',rateLR
+#0.846030985466
 
 
 
