@@ -84,8 +84,8 @@ print "Naive_Bayes_Accuracy:",Accuracy([i[1] for i in predictions],y_test)
 data_class=zip(data,Y)
 dcRDD=sc.parallelize(data_class,numSlices=16)
 labeledRDD=dcRDD.map(partial(createWeightedLabeledPoint,dictionary=dict_broad.value)).collect()
-model = GaussianNB.fit(labeledRDD[1],labeledRDD[0])
-predictions = model.predict(x_test)
+model = GaussianNB()
+predictions=model.fit(labeledRDD[1],labeledRDD[0]).predict(x_test)
 print "GaussianNB_Accuracy:",Accuracy(predictions,y_test)
 ############################### Train Gaussian NBmodel ###############################
 
