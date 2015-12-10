@@ -1,15 +1,24 @@
 from pyspark import SparkContext
+<<<<<<< HEAD
 import LoadFiles as lf
+=======
+import loadFiles_v1 as lf
+>>>>>>> 7c5d5208b8490aa882cc90b09715592f46407311
 import numpy as np
 from random import randint
 from  pyspark.mllib.classification import NaiveBayes
 from functools import partial
 from pyspark.mllib.linalg import SparseVector
 from pyspark.mllib.regression import LabeledPoint
+<<<<<<< HEAD
 from pyspark.mllib.classification import SVMWithSGD
 from pyspark.mllib.classification import LogisticRegressionWithSGD
 import string
 
+=======
+from sklearn import cross_validation
+from sklearn.naive_bayes import GaussianNB
+>>>>>>> 7c5d5208b8490aa882cc90b09715592f46407311
 
 
 sc = SparkContext(appName="Simple App")
@@ -25,13 +34,24 @@ def createBinaryLabeledPoint(doc_class,dictionary):
 		vector_dict[dictionary[w]]=1
 	return LabeledPoint(doc_class[1], SparseVector(len(dictionary),vector_dict))
 
+<<<<<<< HEAD
 # I change the function "predict" a little, because I use the "test data", created randomly with bernouille distribution from our train data, as my input, not the test data given by the professor.
+=======
+def createWeightedLabeledPoint(doc_class,dictionary):
+	words=doc_class[0].strip().split(' ')
+	vector_dict={}
+	for w in words:
+		vector_dict[dictionary[w]]=1
+	return (doc_class[1], np.array(SparseVector(len(dictionary),vector_dict)))
+
+>>>>>>> 7c5d5208b8490aa882cc90b09715592f46407311
 def Predict(name_text,dictionary,model):
 	words=name_text[0].strip().split(' ')
 	vector_dict={}
 	for w in words:
 		if(w in dictionary):
 			vector_dict[dictionary[w]]=1
+<<<<<<< HEAD
 	return (name_text[1], model.predict(SparseVector(len(dictionary),vector_dict)))
 
 #data,Y=lf.loadLabeled("/Users/Kanon/Documents/X-courses/MAP670/Big Data Analytics Project 2015/data/train")
@@ -82,29 +102,46 @@ y_test=[Y[i] for i in range(len(data)) if not flag[i]]
 
 
 
+=======
+	return (name_text[0], model.predict(SparseVector(len(dictionary),vector_dict)))
+
+def Accuracy(predictions,y):
+	counter = 0.
+	for i in range(len(predictions)):
+		if predictions[i] == y_test[i]:
+			counter += 1.
+	accuracy = counter/len(predictions)
+	return accuracy
+
+############################### Split Dataset ###############################
+data_O,Y_O=lf.loadLabeled("/Users/Kanon/Documents/X-courses/MAP670/Big Data Analytics Project 2015/data/train")
+data,x_test,Y,y_test = cross_validation.train_test_split(data_O, Y_O, test_size=0.2, random_state=0)
+############################### Split Dataset ###############################
+
+
+############################# Creat Dictionary #############################
+data,Y=lf.loadLabeled("/Users/Kanon/Documents/X-courses/MAP670/Big Data Analytics Project 2015/data/train")
+>>>>>>> 7c5d5208b8490aa882cc90b09715592f46407311
 print len(data)
 dataRDD=sc.parallelize(data,numSlices=16)
-#map data to a binary matrix
-#1. get the dictionary of the data
-#The dictionary of each document is a list of UNIQUE(set) words 
 lists=dataRDD.map(lambda x:list(set(x.strip().split(' ')))).collect()
 all=[]
-#combine all dictionaries together (fastest solution for Python)
 for l in lists:
 	all.extend(l)
 dict=set(all)
 print len(dict)
-#it is faster to know the position of the word if we put it as values in a dictionary
 dictionary={}
 for i,word in enumerate(dict):
 	dictionary[word]=i
-#we need the dictionary to be available AS A WHOLE throughout the cluster
 dict_broad=sc.broadcast(dictionary)
-#build labelled Points from data
-data_class=zip(data,Y)#if a=[1,2,3] & b=['a','b','c'] then zip(a,b)=[(1,'a'),(2, 'b'), (3, 'c')]
+############################# Creat Dictionary #############################
+
+
+############################### Train NBmodel ###############################
+data_class=zip(data,Y)
 dcRDD=sc.parallelize(data_class,numSlices=16)
-#get the labelled points
 labeledRDD=dcRDD.map(partial(createBinaryLabeledPoint,dictionary=dict_broad.value))
+<<<<<<< HEAD
 
 
 
@@ -174,8 +211,25 @@ for x in predictions:
 	output.write('%s\t%d\n'%x)
 output.close()
 '''
+=======
+model=NaiveBayes.train(labeledRDD)
+mb=sc.broadcast(model)
+predictions=sc.parallelize(x_test).map(partial(Predict,dictionary=dict_broad.value,model=mb.value)).collect()
+print "Naive_Bayes_Accuracy:",Accuracy([i[1] for i in predictions],y_test)
+############################### Train NBmodel ###############################
+
+>>>>>>> 7c5d5208b8490aa882cc90b09715592f46407311
+
+############################### Train Gaussian NBmodel ###############################
+data_class=zip(data,Y)
+dcRDD=sc.parallelize(data_class,numSlices=16)
+labeledRDD=dcRDD.map(partial(createWeightedLabeledPoint,dictionary=dict_broad.value)).collect()
+model = GaussianNB()
+predictions=model.fit(labeledRDD[1],labeledRDD[0]).predict(x_test)
+print "GaussianNB_Accuracy:",Accuracy(predictions,y_test)
+############################### Train Gaussian NBmodel ###############################
 
 
-
+# Accuracy of given algo: 85.54%
 
 
