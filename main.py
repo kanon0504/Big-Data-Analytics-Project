@@ -41,14 +41,17 @@ def Predict(name_text,dictionary,model):
 	return (name_text, model.predict(SparseVector(len(dictionary),vector_dict)))
 
 
-def groupPredict(x_test,models):
-	 y = []
-	 for i in x_test:
-	 	y_temp = []
-	 	for model in models:
-	 		y_temp.append(float(model.predict(i)))
-	 	y.append(round(np.average(y_temp)))
-	 return y
+def groupPredict(x_test,dictionary,models):
+	words=x_test.strip().split(' ')
+	vector_dict={}
+	for w in words:
+		if(w in dictionary):
+			vector_dict[dictionary[w]]=1
+	svector = SparseVector(len(dictionary),vector_dict)
+	y_temp = []
+ 	for model in models:
+ 		y_temp.append(float(model.predict(svector)))
+	return round(np.average(y_temp))
 
 def Accuracy(predictions,y):
 	counter = 0.
@@ -99,11 +102,12 @@ labeledRDD=dcRDD.map(partial(createBinaryLabeledPoint,dictionary=dict_broad.valu
 labeledRDD=labeledRDD.map(lambda x: (randint(1,5),x))
 groupRDD=labeledRDD.groupByKey().mapValues(list)
 models = groupRDD.map(trainedModels).collect()
-predictions = groupPredict(x_test,models)
-print "GaussianNB_Accuracy:",Accuracy([i[1] for i in predictions],y_test)
+mbs=sc.broadcast(models)
+predictions = sc.parallelize(x_test).map(partial(groupPredict,dictionary=dict_broad.value,models=mbs.value)).collect()
+print "GaussianNB_Accuracy:",Accuracy(predictions,y_test)
 ############################### Train Gaussian NBmodel ###############################
 
 
 # Accuracy of given algo: 85.54%
-
+# update 1.1.1
 
