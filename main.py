@@ -31,12 +31,12 @@ def createWeightedLabeledPoint(doc_class,dictionary):
 	return (doc_class[1], np.array(SparseVector(len(dictionary),vector_dict)))
 
 def Predict(name_text,dictionary,model):
-	words=name_text[1].strip().split(' ')
+	words=name_text.strip().split(' ')
 	vector_dict={}
 	for w in words:
 		if(w in dictionary):
 			vector_dict[dictionary[w]]=1
-	return (name_text[0], model.predict(SparseVector(len(dictionary),vector_dict)))
+	return (name_text, model.predict(SparseVector(len(dictionary),vector_dict)))
 
 def Accuracy(predictions,y):
 	counter = 0.
@@ -46,6 +46,17 @@ def Accuracy(predictions,y):
 	accuracy = counter/len(predictions)
 	return accuracy
 
+def Key(LabeledPoint):
+	withkey = []
+	withkey.append(randint(1,50))
+	withkey.append(LabeledPoint)
+	return withkey
+
+def trainedModels(groupedPoint, dictionary):
+	model = GaussianNB()
+	model.fit([i[1].features for i in groupedPoint],[i[1].lable for i in groupedPoint])
+	return model
+
 ############################### Split Dataset ###############################
 data_O,Y_O=lf.loadLabeled("/Users/Kanon/Documents/X-courses/MAP670/Big Data Analytics Project 2015/data/train")
 data,x_test,Y,y_test = cross_validation.train_test_split(data_O, Y_O, test_size=0.2, random_state=0)
@@ -53,7 +64,6 @@ data,x_test,Y,y_test = cross_validation.train_test_split(data_O, Y_O, test_size=
 
 
 ############################# Creat Dictionary #############################
-data,Y=lf.loadLabeled("/Users/Kanon/Documents/X-courses/MAP670/Big Data Analytics Project 2015/data/train")
 print len(data)
 dataRDD=sc.parallelize(data,numSlices=16)
 lists=dataRDD.map(lambda x:list(set(x.strip().split(' ')))).collect()
@@ -83,10 +93,14 @@ print "Naive_Bayes_Accuracy:",Accuracy([i[1] for i in predictions],y_test)
 ############################### Train Gaussian NBmodel ###############################
 data_class=zip(data,Y)
 dcRDD=sc.parallelize(data_class,numSlices=16)
-labeledRDD=dcRDD.map(partial(createWeightedLabeledPoint,dictionary=dict_broad.value)).collect()
-model = GaussianNB()
-predictions=model.fit(labeledRDD[1],labeledRDD[0]).predict(x_test)
-print "GaussianNB_Accuracy:",Accuracy(predictions,y_test)
+labeledRDD=dcRDD.map(partial(createBinaryLabeledPoint,dictionary=dict_broad.value))
+labeledRDD=labeledRDD.map(Key)
+groupRDD.groupByKey().map(lambda x: (x[0],list(x[1:])))
+# model = labeledRDD.map(GaussianNB)
+models = groupRDD.map(partial(trainedModels,dictionary=dict_broad.value)).collect()
+# mb=sc.broadcast(model)
+# predictions=sc.parallelize(x_test).map(partial(Predict,dictionary=dict_broad.value,model=mb.value)).collect()
+print "GaussianNB_Accuracy:",Accuracy([i[1] for i in predictions],y_test)
 ############################### Train Gaussian NBmodel ###############################
 
 
