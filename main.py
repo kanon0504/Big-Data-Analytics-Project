@@ -46,7 +46,7 @@ def groupPredict(x_test,models):
 	 for i in x_test:
 	 	y_temp = []
 	 	for model in models:
-	 		y_temp.append(model.predict(i))
+	 		y_temp.append(float(model.predict(i)))
 	 	y.append(round(np.average(y_temp)))
 	 return y
 
