@@ -15,6 +15,7 @@ from nltk.stem import PorterStemmer
 import re
 
 
+
 sc = SparkContext(appName="Simple App")
 
 
@@ -88,19 +89,23 @@ def Accuracy(predictions,y):
 
 
 
-############################### Data Load & Preprocessing ###############################
-print "Data Load & Preprocessing_start"
-data_O,Y_O=lf.loadLabeled("data/train")
-
 def remove_html_tags(string):
     """delete annoying html tags in the description of a book
     using a regex
     """
     return re.sub('<[^<]+?>', '', string) if string else ''
+
+
+def remove_nonutf8_tags(string):
+    return re.sub('[^\w]+', ' ', string)
     
-data_O=[remove_html_tags(w).decode('utf-8') for w in data_O ]
 
 
+    
+
+
+############################### train data Loading and Preprocessing  ##############################################
+data_O,Y_O=lf.loadLabeled("data/train")
 
 stopwords = ['i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', 'your', 'yours',
         'yourself', 'yourselves', 'he', 'him', 'his', 'himself', 'she', 'her', 'hers',
@@ -113,15 +118,19 @@ stopwords = ['i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you',
         'in', 'out', 'on', 'off', 'over', 'under', 'again', 'further', 'then', 'once', 'here',
         'there', 'when', 'where', 'why', 'how', 'all', 'any', 'both', 'each', 'few', 'more',
         'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so',
-        'than', 'too', 'very', 's', 't', 'can', 'will', 'just', 'don', 'should', 'now','<br />','\\\\']
+        'than', 'too', 'very', 's', 't', 'can', 'will', 'just', 'don', 'should', 'now','\\\\']
 
+
+data_O=[remove_html_tags(w) for w in data_O ]
+
+data_O=[remove_nonutf8_tags(w).decode('utf-8','ignore') for w in data_O ]
 
 for doc_id, text in enumerate(data_O):        
     # Remove punctuation and lowercase
     punctuation = set(string.punctuation)    
-    doc = ''.join([w for w in text.lower() if w not in punctuation])           
+    doc = ''.join([w for w in text.lower() if w not in punctuation])         
     # Stopword removal
-    doc = [w for w in doc.split() if w not in stopwords]  
+    doc = [w for w in doc.split() if w not in stopwords] 
     # Stemming
     stemmer = PorterStemmer()
     doc = [stemmer.stem(w) for w in doc]              
@@ -130,11 +139,12 @@ for doc_id, text in enumerate(data_O):
     data_O[doc_id] = doc  
        
 data_O=[w.encode('utf-8') for w in data_O ]
-print "Data Load & Preprocessing_end"
-############################### Load Data & preprocession ##############################
- 
- 
 
+    
+############################### train data Loading and Preprocessing  #############################################
+ 
+ 
+ 
 ############################### Split Dataset ###############################
 data,x_test,Y,y_test = cross_validation.train_test_split(data_O, Y_O, test_size=0.2, random_state=0)
 ############################### Split Dataset ###############################
@@ -204,11 +214,38 @@ model_LR=LogisticRegressionWithSGD.train(labeledRDD)
 mb_LR=sc.broadcast(model_LR)
 predictions_LR=sc.parallelize(x_test).map(partial(Predict,dictionary=dict_broad.value,model=mb_LR.value)).collect()
 print 'RL_Accuracy:',Accuracy([i[1] for i in predictions_SVM],y_test)
-#RL_Accuracy 0.857142857143
+
 
 print "Models from pyspark.mllib_end"
 ############################### Models from pyspark.mllib ###############################
 
+
+
+
+
+
+
+###############################test data Loading and Preprocessing  ###############################
+test,names=lf.loadUknown('./data/test')
+
+test=[remove_html_tags(w) for w in test ]
+test=[remove_nonutf8_tags(w).decode('utf-8','ignore') for w in test ]
+for doc_id, text in enumerate(test):        
+    # Remove punctuation and lowercase
+    punctuation = set(string.punctuation)    
+    doc = ''.join([w for w in text.lower() if w not in punctuation])         
+    # Stopword removal
+    doc = [w for w in doc.split() if w not in stopwords] 
+    # Stemming
+    stemmer = PorterStemmer()
+    doc = [stemmer.stem(w) for w in doc]              
+    # Covenrt list of words to one string 
+    doc = ' '.join(w for w in doc)
+    test[doc_id] = doc  
+
+test=[remove_html_tags(w).encode('utf-8') for w in test ]
+
+############################### test data Loading and Preprocessing  #############################################
 
 
 
