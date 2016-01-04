@@ -176,7 +176,9 @@ print "Creat Dictionary_end"
 
 ############################### Models from sklearn ###############################################################
 print " Models from sklearn_start"
-#######Train Gaussian NBmodel (Accuracy 0.697)
+#######Train NBmodel (Wait for your result)
+
+#######Train RandomForest (Accuracy 0.783)
 data_class=zip(data,Y)
 dcRDD=sc.parallelize(data_class,numSlices=16).cache()
 labeledRDD=dcRDD.map(partial(createBinaryPoint,dictionary=dict_broad.value))
