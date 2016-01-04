@@ -176,7 +176,7 @@ print "Creat Dictionary_end"
 
 ############################### Models from sklearn ###############################################################
 print " Models from sklearn_start"
-#######Train Gaussian NBmodel
+#######Train Gaussian NBmodel (Accuracy 0.697)
 data_class=zip(data,Y)
 dcRDD=sc.parallelize(data_class,numSlices=16).cache()
 labeledRDD=dcRDD.map(partial(createBinaryPoint,dictionary=dict_broad.value))
@@ -186,7 +186,7 @@ models = groupRDD.map(trainedModelsRandomForest).collect()
 mbs=sc.broadcast(models)
 predictions = sc.parallelize(x_test).map(partial(groupPredict,dictionary=dict_broad.value,models=mbs.value)).collect()
 print "RandomForest_Accuracy:",Accuracy(predictions,y_test)
-##########Train SVMKernel MODEL
+##########Train SVM MODEL with gaussien kernel (Accuracy : error!!) 
 data_class=zip(data,Y)
 dcRDD=sc.parallelize(data_class,numSlices=16).cache()
 labeledRDD=dcRDD.map(partial(createBinaryPoint,dictionary=dict_broad.value))
@@ -207,38 +207,43 @@ print "Models from pyspark.mllib_start"
 data_class=zip(data,Y)
 dcRDD=sc.parallelize(data_class,numSlices=16).cache()
 labeledRDD=dcRDD.map(partial(createBinaryLabeledPoint,dictionary=dict_broad.value))
-############ Train NBmodel 
+############ Train NBmodel (Accuracy: 0.8532)
 model=NaiveBayes.train(labeledRDD)
 mb=sc.broadcast(model)
 predictions=sc.parallelize(x_test).map(partial(Predict,dictionary=dict_broad.value,model=mb.value)).collect()
 print "Naive_Bayes_Accuracy:",Accuracy([i[1] for i in predictions],y_test)
-############ Train SVM 
+############ Train SVM (Accuracy: 0.8602)
 model_SVM=SVMWithSGD.train(labeledRDD)
 mb_SVM=sc.broadcast(model_SVM)
 predictions_SVM=sc.parallelize(x_test).map(partial(Predict,dictionary=dict_broad.value,model=mb_SVM.value)).collect()
 print 'SVM_Accuracy:',Accuracy([i[1] for i in predictions_SVM],y_test)
-############ Train Logistic Regression 
+############ Train Logistic Regression (Accuracy: 0.8602)
 model_LR=LogisticRegressionWithSGD.train(labeledRDD)
 mb_LR=sc.broadcast(model_LR)
 predictions_LR=sc.parallelize(x_test).map(partial(Predict,dictionary=dict_broad.value,model=mb_LR.value)).collect()
 print 'RL_Accuracy:',Accuracy([i[1] for i in predictions_SVM],y_test)
-############ Train tfidf SVM
+############ Train tfidf SVM (Accuracy 0.7686)
+#create tf_idf matrix for both train data and test data
 documents=data_O
 documents.extend(test)
 tfidf_vectorizer = TfidfVectorizer()
 tfidf_matrix = tfidf_vectorizer.fit_transform(documents)
 tfidf_matrix.shape
 xtrain,xtest,ytrain,ytest = cross_validation.train_test_split(tfidf_matrix[:25000,:],Y_O, test_size=0.2, random_state=0)
+#create LabeledPoint for train data
 SparseVectors=[]
 tfidf=xtrain.toarray()
 for i in range(len(tfidf)):
     SparseVectors.append((LabeledPoint(ytrain[i],CreateTfidfSparseVectorFromArray(tfidf[i]))))    
+#create LabeledPoint for test data
 SparseVectors_test=[]
 tfidf_test=xtest.toarray()
 for i in range(len(tfidf_test)):
     SparseVectors_test.append((LabeledPoint(ytest[i],CreateTfidfSparseVectorFromArray(tfidf_test[i]))))    
+#fit SVM linear model 
 SparseVectors_RDD=sc.parallelize(SparseVectors,numSlices=16).cache()
 model_SVM_tfidf=SVMWithSGD.train(SparseVectors_RDD)
+#evaluate the accuracy
 prediction_SVM_tfidf=[]
 for i in SparseVectors_test: 
     prediction_SVM_tfidf.append(model_SVM_tfidf.predict(i.features))
@@ -266,21 +271,18 @@ output.close()
 ############################### predict test data  #############################################
 
 
-
-#Select most important features(top200,50% accuracy)
+##Some other work(can be ignore...):
+#Select top 200 binary features 
+from sklearn.feature_selection import SelectKBest
+from sklearn.feature_selection import chi2
 data_class=zip(data,Y)
 dcRDD=sc.parallelize(data_class,numSlices=16).cache()
 labeledRDD=dcRDD.map(partial(createBinaryPoint,dictionary=dict_broad.value)).collect()
-
 x =[points[1].toArray() for points in labeledRDD]
 y = [points[0] for points in labeledRDD]
-from sklearn.feature_selection import SelectKBest
-from sklearn.feature_selection import chi2
 x_new = SelectKBest(chi2, k=200).fit_transform(x, y)
 xy_select=zip(y,x)
-
-
-
+#fit SVM and evaluate the accuracy  (Accuracy 50%)
 xtrain,xtest,ytrain,ytest = cross_validation.train_test_split(x_new, y, test_size=0.2, random_state=0)
 model = SVC(kernel='rbf')
 model.fit(xtrain,ytrain)
@@ -288,22 +290,16 @@ yprediction=model.predict(xtest)
 Accuracy(yprediction,ytest)
 
 
-
-
-#tf_idf matrix,(top200 feature.accuracy  0.6276) (top2000,0.4992)
-
+#Select top 200 tfidf features 
 from sklearn.feature_extraction.text import TfidfVectorizer
 documents=data_O
 documents.extend(test)
 tfidf_vectorizer = TfidfVectorizer()
 tfidf_matrix = tfidf_vectorizer.fit_transform(documents)
 tfidf_matrix.shape
-x_O=tfidf_matrix[:25000,:]
-
-tfidf_new = SelectKBest(chi2, k=200).fit_transform(x_O,Y_O)
-
+tfidf_new = SelectKBest(chi2, k=200).fit_transform(tfidf_matrix[:25000,:],Y_O)
+#fit SVM and evaluate the accuracy  (Accuracy 0.6276)
 xtrain,xtest,ytrain,ytest = cross_validation.train_test_split(tfidf_new,Y_O, test_size=0.2, random_state=0)
-
 model = SVC(kernel='rbf')
 model.fit(xtrain,ytrain)
 yprediction=model.predict(xtest)
